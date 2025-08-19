@@ -143,15 +143,12 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
 
   if (isLoadingList) {
     return (
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle>Loading Sensors...</CardTitle>
-          <CardDescription>Please wait while we fetch your sensors.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading sensors...</p>
+        </div>
+      </div>
     )
   }
 

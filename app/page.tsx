@@ -9,11 +9,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Sensor } from "@/types/sensor"
 import { Activity, Database, List, Plus, Settings, TestTube, Wifi } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function HomePage() {
   const [sensors, setSensors] = useState<Sensor[]>([])
   const [activeTab, setActiveTab] = useState("overview")
+  const [isLoadingOverview, setIsLoadingOverview] = useState(false)
+
+  // Load sensors on first render to populate overview
+  useEffect(() => {
+    ;(async () => {
+      try {
+        setIsLoadingOverview(true)
+        const res = await fetch("/api/sensors")
+        const j = await res.json()
+        if (res.ok && Array.isArray(j.sensors)) setSensors(j.sensors as Sensor[])
+      } finally {
+        setIsLoadingOverview(false)
+      }
+    })()
+  }, [])
 
   const connectedSensors = sensors.filter((s) => s.status === "connected").length
   const totalFlows = sensors.length
@@ -73,9 +88,11 @@ export default function HomePage() {
                   <Wifi className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{connectedSensors}</div>
+                  <div className="text-2xl font-bold">{isLoadingOverview ? "–" : connectedSensors}</div>
                   <p className="text-xs text-muted-foreground">
-                    {sensors.length === 0
+                    {isLoadingOverview
+                      ? "Loading..."
+                      : sensors.length === 0
                       ? "No sensors configured yet"
                       : `${connectedSensors} of ${sensors.length} online`}
                   </p>
@@ -88,9 +105,9 @@ export default function HomePage() {
                   <Settings className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{totalFlows}</div>
+                  <div className="text-2xl font-bold">{isLoadingOverview ? "–" : totalFlows}</div>
                   <p className="text-xs text-muted-foreground">
-                    {totalFlows === 0 ? "Flows will be auto-generated" : "Active processing flows"}
+                    {isLoadingOverview ? "Loading..." : totalFlows === 0 ? "Flows will be auto-generated" : "Active processing flows"}
                   </p>
                 </CardContent>
               </Card>
@@ -103,7 +120,7 @@ export default function HomePage() {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Badge variant={connectedSensors > 0 ? "default" : "secondary"}>
-                      {connectedSensors > 0 ? "Connected" : "Disconnected"}
+                      {isLoadingOverview ? "Loading" : connectedSensors > 0 ? "Connected" : "Disconnected"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">Using HiveMQ public broker</p>
