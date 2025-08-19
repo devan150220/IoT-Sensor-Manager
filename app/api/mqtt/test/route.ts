@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
     }
 
-    const url = `mqtt://${brokerUrl}:1883`
+    const host = brokerUrl.replace(/^mqtt:\/\//, "").replace(/:\d+$/, "")
+    const url = `mqtt://${host}:1883`
 
     const client = mqtt.connect(url, {
       protocol: "mqtt",
-      host: brokerUrl,
+      host,
       port: 1883,
       clean: true,
       connectTimeout: 4000,
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "MQTT publish successful",
+      message: `MQTT publish successful to ${host}:1883`,
       messageId: result.messageId,
       timestamp: new Date().toISOString(),
     })

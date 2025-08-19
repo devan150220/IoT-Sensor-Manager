@@ -1,12 +1,5 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +9,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription as Desc,
 } from "@/components/ui/alert-dialog"
-import { Search, MoreVertical, Play, Pause, Trash2, Eye, Settings, Wifi, WifiOff, AlertCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import type { Sensor } from "@/types/sensor"
+import { AlertCircle, Eye, MoreVertical, Pause, Play, Search, Settings, Trash2, Wifi, WifiOff } from "lucide-react"
+import type React from "react"
+import { useEffect, useState } from "react"
 
 interface SensorListProps {
   sensors: Sensor[]
@@ -31,6 +32,23 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
     open: false,
     sensor: null,
   })
+  const [viewDialog, setViewDialog] = useState<{ open: boolean; content: any | null; title?: string }>({
+    open: false,
+    content: null,
+    title: undefined,
+  })
+
+  // Load sensors on mount
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch("/api/sensors")
+        const j = await res.json()
+        if (res.ok && Array.isArray(j.sensors)) setSensors(j.sensors as Sensor[])
+      } catch {}
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filteredSensors = sensors.filter(
     (sensor) =>
@@ -43,25 +61,44 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
     setDeleteDialog({ open: true, sensor })
   }
 
-  const confirmDelete = () => {
-    if (deleteDialog.sensor) {
-      setSensors((prev) => prev.filter((s) => s.id !== deleteDialog.sensor!.id))
-      setDeleteDialog({ open: false, sensor: null })
-    }
+  const confirmDelete = async () => {
+    if (!deleteDialog.sensor) return
+    try {
+      const res = await fetch(`/api/sensors/${encodeURIComponent(deleteDialog.sensor.sensorId)}`, { method: "DELETE" })
+      if (res.ok) {
+        setSensors((prev) => prev.filter((s) => s.sensorId !== deleteDialog.sensor!.sensorId))
+      }
+    } catch {}
+    setDeleteDialog({ open: false, sensor: null })
   }
 
-  const toggleSensorStatus = (sensorId: string) => {
-    setSensors((prev) =>
-      prev.map((sensor) =>
-        sensor.id === sensorId
-          ? {
-              ...sensor,
-              status: sensor.status === "connected" ? "disconnected" : "connected",
-              lastSeen: sensor.status === "disconnected" ? new Date().toISOString() : sensor.lastSeen,
-            }
-          : sensor,
-      ),
-    )
+  const toggleSensorStatus = async (id: string) => {
+    const sensor = sensors.find((s) => s.id === id)
+    if (!sensor) return
+    const nextStatus = sensor.status === "connected" ? "disconnected" : "connected"
+    const payload: Partial<Sensor> = { status: nextStatus, lastSeen: nextStatus === "connected" ? new Date().toISOString() : sensor.lastSeen }
+    try {
+      await fetch(`/api/sensors/${encodeURIComponent(sensor.sensorId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    } catch {}
+    setSensors((prev) => prev.map((s) => (s.id === id ? { ...s, ...payload } : s)))
+  }
+
+  const viewSensor = async (sensor: Sensor) => {
+    try {
+      const res = await fetch(`/api/sensors/${encodeURIComponent(sensor.sensorId)}`)
+      const j = await res.json()
+      if (res.ok) {
+        setViewDialog({ open: true, content: j.sensor, title: sensor.sensorId })
+        return
+      }
+      setViewDialog({ open: true, content: j, title: sensor.sensorId })
+    } catch (e) {
+      setViewDialog({ open: true, content: { error: e instanceof Error ? e.message : "Failed" }, title: sensor.sensorId })
+    }
   }
 
   const getStatusIcon = (status: Sensor["status"]) => {
@@ -168,7 +205,7 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
                         </>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => viewSensor(sensor)}>
                       <Eye className="w-4 h-4 mr-2" />
                       View Data
                     </DropdownMenuItem>
@@ -235,6 +272,23 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
               Delete Sensor
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View Dialog (reuse AlertDialog for simplicity) */}
+      <AlertDialog open={viewDialog.open} onOpenChange={(open) => setViewDialog({ open, content: null, title: undefined })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sensor: {viewDialog.title}</AlertDialogTitle>
+            <Desc>
+              <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-64">
+{viewDialog.content ? JSON.stringify(viewDialog.content, null, 2) : ""}
+              </pre>
+            </Desc>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

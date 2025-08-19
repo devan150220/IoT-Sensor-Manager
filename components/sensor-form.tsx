@@ -1,15 +1,15 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Plus, TestTube, CheckCircle, AlertCircle } from "lucide-react"
 import type { Sensor } from "@/types/sensor"
+import { AlertCircle, CheckCircle, Loader2, Plus, TestTube } from "lucide-react"
+import type React from "react"
+import { useState } from "react"
 
 interface SensorFormData {
   sensorId: string
@@ -92,6 +92,22 @@ export function SensorForm({ sensors, setSensors, onSuccess }: SensorFormProps) 
       }
 
       const flowResult = await flowResponse.json()
+
+      // Persist sensor to DB
+      try {
+        await fetch("/api/sensors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sensorId: formData.sensorId,
+            brokerUrl: formData.brokerUrl,
+            topic: formData.topic,
+            description: formData.description,
+            samplePayload: formData.samplePayload,
+            nodeRedFlowId: flowResult.flowId,
+          }),
+        })
+      } catch {}
 
       const newSensor: Sensor = {
         id: `sensor_${Date.now()}`,

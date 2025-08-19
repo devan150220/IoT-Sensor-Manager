@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sensor {
+  id            String          @id @default(cuid())
+  sensorId      String          @unique
+  brokerUrl     String
+  topic         String
+  description   String?
+  samplePayload String
+  status        String          @default("disconnected")
+  createdAt     DateTime        @default(now())
+  lastSeen      DateTime?
+  nodeRedFlowId String?
+  readings      SensorReading[]
+}
+
+model SensorReading {
+  id        String   @id @default(cuid())
+  sensorId  String
+  value     Float
+  unit      String?
+  raw       Json?
+  createdAt DateTime @default(now())
+  Sensor    Sensor   @relation(fields: [sensorId], references: [sensorId], onDelete: Cascade)
+
+  @@index([sensorId, createdAt])
+}
