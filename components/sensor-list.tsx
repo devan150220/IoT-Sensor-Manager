@@ -8,8 +8,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription as Desc,
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import type { Sensor } from "@/types/sensor"
-import { AlertCircle, Eye, MoreVertical, Pause, Play, Search, Settings, Trash2, Wifi, WifiOff } from "lucide-react"
+import { AlertCircle, Eye, Loader2, MoreVertical, Pause, Play, Search, Settings, Trash2, Wifi, WifiOff } from "lucide-react"
 import type React from "react"
 import { useEffect, useState } from "react"
 
@@ -37,15 +36,21 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
     content: null,
     title: undefined,
   })
+  const [isLoadingList, setIsLoadingList] = useState(false)
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null)
+  const [isTogglingId, setIsTogglingId] = useState<string | null>(null)
+  const [isViewing, setIsViewing] = useState(false)
 
   // Load sensors on mount
   useEffect(() => {
     ;(async () => {
       try {
+        setIsLoadingList(true)
         const res = await fetch("/api/sensors")
         const j = await res.json()
         if (res.ok && Array.isArray(j.sensors)) setSensors(j.sensors as Sensor[])
       } catch {}
+      finally { setIsLoadingList(false) }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -64,12 +69,14 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
   const confirmDelete = async () => {
     if (!deleteDialog.sensor) return
     try {
+      setIsDeletingId(deleteDialog.sensor.sensorId)
       const res = await fetch(`/api/sensors/${encodeURIComponent(deleteDialog.sensor.sensorId)}`, { method: "DELETE" })
       if (res.ok) {
         setSensors((prev) => prev.filter((s) => s.sensorId !== deleteDialog.sensor!.sensorId))
       }
     } catch {}
     setDeleteDialog({ open: false, sensor: null })
+    setIsDeletingId(null)
   }
 
   const toggleSensorStatus = async (id: string) => {
@@ -78,6 +85,7 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
     const nextStatus = sensor.status === "connected" ? "disconnected" : "connected"
     const payload: Partial<Sensor> = { status: nextStatus, lastSeen: nextStatus === "connected" ? new Date().toISOString() : sensor.lastSeen }
     try {
+      setIsTogglingId(id)
       await fetch(`/api/sensors/${encodeURIComponent(sensor.sensorId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -85,19 +93,24 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
       })
     } catch {}
     setSensors((prev) => prev.map((s) => (s.id === id ? { ...s, ...payload } : s)))
+    setIsTogglingId(null)
   }
 
   const viewSensor = async (sensor: Sensor) => {
     try {
+      setIsViewing(true)
       const res = await fetch(`/api/sensors/${encodeURIComponent(sensor.sensorId)}`)
       const j = await res.json()
       if (res.ok) {
         setViewDialog({ open: true, content: j.sensor, title: sensor.sensorId })
+        setIsViewing(false)
         return
       }
       setViewDialog({ open: true, content: j, title: sensor.sensorId })
+      setIsViewing(false)
     } catch (e) {
       setViewDialog({ open: true, content: { error: e instanceof Error ? e.message : "Failed" }, title: sensor.sensorId })
+      setIsViewing(false)
     }
   }
 
@@ -125,6 +138,20 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
       <Badge variant={variants[status]} className="capitalize">
         {status}
       </Badge>
+    )
+  }
+
+  if (isLoadingList) {
+    return (
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle>Loading Sensors...</CardTitle>
+          <CardDescription>Please wait while we fetch your sensors.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
     )
   }
 
@@ -192,8 +219,13 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => toggleSensorStatus(sensor.id)}>
-                      {sensor.status === "connected" ? (
+                    <DropdownMenuItem onClick={() => toggleSensorStatus(sensor.id)} disabled={isTogglingId === sensor.id}>
+                      {isTogglingId === sensor.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : sensor.status === "connected" ? (
                         <>
                           <Pause className="w-4 h-4 mr-2" />
                           Disconnect
@@ -281,14 +313,20 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Sensor: {viewDialog.title}</AlertDialogTitle>
-            <Desc>
-              <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-64">
+            <div className="mt-2">
+              {isViewing ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                </div>
+              ) : (
+                <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-64">
 {viewDialog.content ? JSON.stringify(viewDialog.content, null, 2) : ""}
-              </pre>
-            </Desc>
+                </pre>
+              )}
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>Close</AlertDialogAction>
+            <AlertDialogAction disabled={isViewing}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

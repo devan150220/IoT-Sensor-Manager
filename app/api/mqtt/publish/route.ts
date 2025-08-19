@@ -69,42 +69,4 @@ export async function POST(request: NextRequest) {
 }
 
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { brokerUrl, topic, payload, qos = 0 } = body
-
-    if (!brokerUrl || !topic || !payload) {
-      return NextResponse.json({ error: "Missing required fields: brokerUrl, topic, payload" }, { status: 400 })
-    }
-
-    // Validate JSON payload
-    let parsedPayload
-    try {
-      parsedPayload = JSON.parse(payload)
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
-    }
-
-    // In a real implementation, you would use mqtt.js or similar
-    // For simulation purposes, we'll return success
-    const publishResult = {
-      success: true,
-      brokerUrl,
-      topic,
-      payload: parsedPayload,
-      qos,
-      messageId: `msg_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      message: "Message published successfully",
-    }
-
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    return NextResponse.json(publishResult)
-  } catch (error) {
-    console.error("Error publishing MQTT message:", error)
-    return NextResponse.json({ error: "Failed to publish MQTT message" }, { status: 500 })
-  }
-}
+// (removed duplicate POST)
