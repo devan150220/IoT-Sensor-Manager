@@ -268,7 +268,7 @@ export function SensorList({ sensors, setSensors }: SensorListProps) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Topic</span>
-                  <span className="text-sm text-muted-foreground font-mono text-xs">{sensor.topic}</span>
+                  <span className="text-sm text-muted-foreground font-mono">{sensor.topic}</span>
                 </div>
                 {sensor.lastSeen && (
                   <div className="flex items-center justify-between">
